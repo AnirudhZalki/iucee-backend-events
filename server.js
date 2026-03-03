@@ -14,9 +14,12 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB Atlas"))
   .catch(err => console.error("MongoDB Connection Error:", err));
 
+
 // Email Transporter Setup
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -29,7 +32,7 @@ const generateRegId = () => `SIS-${Math.floor(1000 + Math.random() * 9000)}`;
 // API Route
 app.post('/api/register', async (req, res) => {
   try {
-    const { teamName, college, leaderName, leaderEmail, referralCode } = req.body;
+    const { teamName, college, leaderName, leaderEmail, leaderPhone, referralCode } = req.body;
     
     // Collect all dynamic members from the body
     const members = [];
@@ -45,6 +48,7 @@ app.post('/api/register', async (req, res) => {
       college,
       leaderName,
       leaderEmail,
+      leaderPhone,
       members,
       referralCode
     });
