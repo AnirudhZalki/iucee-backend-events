@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,35 +7,77 @@ const nodemailer = require('nodemailer');
 const Registration = require('./models/Registration');
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 
+// ===============================
 // MongoDB Connection
+// ===============================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("Connected to MongoDB Atlas"))
-  .catch(err => console.error("MongoDB Connection Error:", err));
+  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .catch(err => {
+    console.error("❌ MongoDB Connection Error:", err.message);
+  });
 
+// ===============================
 // Email Transporter Setup
+// ===============================
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    pass: process.env.EMAIL_PASS  // MUST be Gmail App Password
   }
 });
 
-// Helper: Generate Unique Reg ID (e.g., SIS-1234)
-const generateRegId = () => `SIS-${Math.floor(1000 + Math.random() * 9000)}`;
+// ===============================
+// Helper: Generate Unique Reg ID
+// ===============================
+const generateRegId = () =>
+  `SIS-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// API Route
+// ===============================
+// Health Check Route
+// ===============================
+app.get('/', (req, res) => {
+  res.send("🚀 IUCEE Backend is Running");
+});
+
+// ===============================
+// Registration Route
+// ===============================
 app.post('/api/register', async (req, res) => {
   try {
-    const { teamName, college, leaderName, leaderEmail, referralCode } = req.body;
-    
-    // Collect all dynamic members from the body
+    const {
+      teamName,
+      college,
+      leaderName,
+      leaderEmail,
+      leaderPhone,
+      referralCode
+    } = req.body;
+
+    // Basic Validation
+    if (!teamName || !college || !leaderName || !leaderEmail || !leaderPhone) {
+      return res.status(400).json({
+        message: "All required fields must be filled."
+      });
+    }
+
+    // Collect Members
     const members = [];
     for (let i = 2; i <= 4; i++) {
-      if (req.body[`member${i}`]) members.push(req.body[`member${i}`]);
+      if (req.body[`member${i}`]) {
+        members.push(req.body[`member${i}`]);
+      }
+    }
+
+    if (members.length !== 3) {
+      return res.status(400).json({
+        message: "Exactly 4 team members required (1 leader + 3 members)."
+      });
     }
 
     const regId = generateRegId();
@@ -45,28 +88,58 @@ app.post('/api/register', async (req, res) => {
       college,
       leaderName,
       leaderEmail,
+      leaderPhone,
       members,
       referralCode
     });
 
     await newRegistration.save();
+    console.log("✅ Registration saved to MongoDB");
 
-    // Send Confirmation Email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: leaderEmail,
-      subject: 'Registration Successful - Sustainable Industry Sprint',
-      text: `Hello ${leaderName},\n\nYour team "${teamName}" has been successfully registered for the Sustainable Industry Sprint!\n\nYour Registration ID: ${regId}\nDate: March 11th\nVenue: SoEEE Seminar Hall\n\nSee you there!`
-    };
+    // Send Email (Do NOT crash if email fails)
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: leaderEmail,
+        subject: "Registration Successful - Sustainable Industry Sprint",
+        text: `Hello ${leaderName},
 
-    transporter.sendMail(mailOptions);
+Your team "${teamName}" has been successfully registered for the Sustainable Industry Sprint!
 
-    res.status(201).json({ message: 'Registration Successful', regId });
+Registration ID: ${regId}
+Date: March 11th
+Venue: SoEEE Seminar Hall
+
+See you there!
+
+- IUCEE Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log("✅ Confirmation email sent");
+    } catch (mailError) {
+      console.error("❌ Email sending failed:", mailError.message);
+      // Do NOT stop registration if email fails
+    }
+
+    res.status(201).json({
+      message: "Registration Successful",
+      regId
+    });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error. Please try again later.' });
+    console.error("🔥 REGISTER ROUTE ERROR:", error);
+    res.status(500).json({
+      message: error.message
+    });
   }
 });
 
+// ===============================
+// Start Server
+// ===============================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
