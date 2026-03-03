@@ -20,12 +20,8 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => {
     console.error("❌ MongoDB Connection Error:", err.message);
   });
-
-<<<<<<< HEAD
-
-=======
+  
 // ===============================
->>>>>>> 36a9ce525e4a794ca084efe3e6e646612e295b35
 // Email Transporter Setup
 // ===============================
 const transporter = nodemailer.createTransport({
@@ -56,11 +52,6 @@ app.get('/', (req, res) => {
 // ===============================
 app.post('/api/register', async (req, res) => {
   try {
-<<<<<<< HEAD
-    const { teamName, college, leaderName, leaderEmail, leaderPhone, referralCode } = req.body;
-    
-    // Collect all dynamic members from the body
-=======
     const {
       teamName,
       college,
@@ -78,13 +69,13 @@ app.post('/api/register', async (req, res) => {
     }
 
     // Collect Members
->>>>>>> 36a9ce525e4a794ca084efe3e6e646612e295b35
     const members = [];
     for (let i = 2; i <= 4; i++) {
       if (req.body[`member${i}`]) {
         members.push(req.body[`member${i}`]);
       }
     }
+
 
     const regId = generateRegId();
 
