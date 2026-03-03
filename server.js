@@ -20,7 +20,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => {
     console.error("❌ MongoDB Connection Error:", err.message);
   });
-  
+
 // ===============================
 // Email Transporter Setup
 // ===============================
@@ -76,6 +76,19 @@ app.post('/api/register', async (req, res) => {
       }
     }
 
+    const existingTeam = await Registration.findOne({ teamName });
+      if (existingTeam) {
+        return res.status(400).json({
+          message: "Team name already registered."
+        });
+      }
+
+    const existingEmail = await Registration.findOne({ leaderEmail });
+      if (existingEmail) {
+        return res.status(400).json({
+          message: "Email already registered."
+        });
+      }
 
     const regId = generateRegId();
 
