@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, 'backend', '.env') });
+
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -24,6 +26,10 @@ mongoose.connect(process.env.MONGO_URI)
 // ===============================
 // Email Transporter Setup
 // ===============================
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  console.error("❌ EMAIL_USER or EMAIL_PASS is missing in backend/.env file.");
+}
+
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -31,6 +37,15 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS  // MUST be Gmail App Password
+  }
+});
+
+// Verify transporter on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ Email Transporter Error:", error.message);
+  } else {
+    console.log("✅ Email SMTP Server is ready to send messages");
   }
 });
 
@@ -52,7 +67,7 @@ app.get('/', (req, res) => {
 // ===============================
 app.post('/api/register', async (req, res) => {
   try {
-    const {
+    let {
       teamName,
       college,
       leaderName,
@@ -60,6 +75,9 @@ app.post('/api/register', async (req, res) => {
       leaderPhone,
       referralCode
     } = req.body;
+
+    // Sanitize
+    if (leaderEmail) leaderEmail = leaderEmail.trim().toLowerCase();
 
     // Basic Validation
     if (!teamName || !college || !leaderName || !leaderEmail || !leaderPhone) {
@@ -77,18 +95,18 @@ app.post('/api/register', async (req, res) => {
     }
 
     const existingTeam = await Registration.findOne({ teamName });
-      if (existingTeam) {
-        return res.status(400).json({
-          message: "Team name already registered."
-        });
-      }
+    if (existingTeam) {
+      return res.status(400).json({
+        message: "Team name already registered."
+      });
+    }
 
     const existingEmail = await Registration.findOne({ leaderEmail });
-      if (existingEmail) {
-        return res.status(400).json({
-          message: "Email already registered."
-        });
-      }
+    if (existingEmail) {
+      return res.status(400).json({
+        message: "Email already registered."
+      });
+    }
 
     const regId = generateRegId();
 
