@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
 // Registration Route
 // ===============================
 app.post('/api/register', async (req, res) => {
+  console.log(`📩 New registration request received for team: ${req.body.teamName || 'Unknown'}`);
   try {
     let {
       teamName,
@@ -99,7 +100,7 @@ app.post('/api/register', async (req, res) => {
     });
 
     await newRegistration.save();
-    console.log("✅ Registration saved to MongoDB");
+    console.log(`✅ Registration ${regId} saved to MongoDB`);
 
     // Send Email (Do NOT crash if email fails)
     try {

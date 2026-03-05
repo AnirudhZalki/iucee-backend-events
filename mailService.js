@@ -17,11 +17,28 @@ const transporter = nodemailer.createTransport({
 // Verify connection configuration
 transporter.verify((error, success) => {
     if (error) {
-        console.error("❌ Email Service Error:", error.message);
+        console.error("❌ Email SMTP Verification Failed:", error.message);
+        console.log("💡 Tip: If using Gmail, make sure you use an 'App Password' and that 'Less Secure Apps' settings aren't blocking it.");
     } else {
         console.log("✅ Email SMTP Server is ready (Service)");
     }
 });
+
+// Create a version that uses Brevo if the key is present
+const createBrevoTransporter = (apiKey) => {
+    return nodemailer.createTransport({
+        host: "smtp-relay.brevo.com",
+        port: 587,
+        secure: false, // Port 587 uses STARTTLS
+        auth: {
+            user: process.env.BREVO_USER || process.env.EMAIL_USER,
+            pass: apiKey
+        },
+        tls: {
+            rejectUnauthorized: false // Avoid issues with self-signed certs or local proxies
+        }
+    });
+};
 
 /**
  * Sends a registration confirmation email.
@@ -33,7 +50,7 @@ transporter.verify((error, success) => {
  */
 const sendConfirmationEmail = async ({ leaderEmail, leaderName, teamName, regId }) => {
     const mailOptions = {
-        from: `IUCEE Team <${process.env.EMAIL_USER}>`,
+        from: `"IUCEE Team" <${process.env.EMAIL_USER}>`,
         to: leaderEmail,
         subject: `Registration Successful - ${teamName}`,
         html: `
@@ -57,13 +74,34 @@ const sendConfirmationEmail = async ({ leaderEmail, leaderName, teamName, regId 
     `
     };
 
+    // Try Brevo first if key is present
+    if (process.env.BREVO_SMTP_KEY) {
+        try {
+            console.log("📧 Attempting to send via Brevo SMTP...");
+            const brevoTransporter = createBrevoTransporter(process.env.BREVO_SMTP_KEY);
+            const info = await Promise.race([
+                brevoTransporter.sendMail(mailOptions),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Brevo timeout (10s)')), 10000))
+            ]);
+            console.log(`✅ Confirmation email sent via Brevo to ${leaderEmail}`);
+            return info;
+        } catch (brevoError) {
+            console.error(`⚠️ Brevo failed (${brevoError.message}). Falling back to Gmail...`);
+        }
+    }
+
+    // Fallback to Gmail
     try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ Confirmation email sent to ${leaderEmail}`);
+        console.log("📧 Sending via Gmail SMTP...");
+        const info = await Promise.race([
+            transporter.sendMail(mailOptions),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Gmail timeout (10s)')), 10000))
+        ]);
+        console.log(`✅ Confirmation email sent via Gmail to ${leaderEmail}`);
         return info;
-    } catch (error) {
-        console.error(`❌ Email sending failed for ${leaderEmail}:`, error.message);
-        throw error;
+    } catch (gmailError) {
+        console.error(`❌ Gmail sending failed for ${leaderEmail}:`, gmailError.message);
+        throw gmailError;
     }
 };
 
